@@ -1,8 +1,5 @@
 cmake_minimum_required(VERSION 3.30)
 
-# Project definition is good practice
-project(GpuMonitor LANGUAGES CXX CUDA)
-
 find_package(CUDAToolkit REQUIRED)
 
 if(NOT TARGET CUDA::nvml)
