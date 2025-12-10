@@ -1,0 +1,10 @@
+[build-system]
+requires = ["scikit-build-core", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "gpumon"
+version = "0.0.1"
+
+[tool.scikit-build]
+cmake.define = { BUILD_PYTHON = "ON" }
