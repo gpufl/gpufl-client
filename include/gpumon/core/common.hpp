@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <atomic>
 #include <map>
+#include <filesystem>
 
 #ifdef _WIN32
 #include <process.h>
@@ -31,6 +32,7 @@ namespace gpumon {
         std::string appName;
         std::string logPath;
         uint32_t sampleIntervalMs = 0; // 0 to disable background sampling
+        size_t maxFileSizeBytes = 2 * 1024 * 1024; // Default 2 MB
     };
 
     namespace detail {
@@ -54,15 +56,23 @@ namespace gpumon {
             unsigned int clockMem = 0;     // MHz
         };
 
+        struct LogFileState {
+            std::ofstream stream;
+            std::string basePath;
+            int index = 0;
+            size_t currentBytes = 0;
+        };
+
         struct State {
             std::string appName;
-            std::map<LogCategory, std::ofstream> logFiles;
+            std::map<LogCategory, LogFileState> logFiles;
             std::mutex logMutex;
             int32_t pid;
             std::atomic<bool> initialized;
             uint32_t sampleIntervalMs;
+            size_t maxSizeBytes;
 
-            State() : pid(0), initialized(false), sampleIntervalMs(0) {}
+            State() : pid(0), initialized(false), sampleIntervalMs(0), maxSizeBytes(0) {}
         };
 
         inline State& getState() {
@@ -97,6 +107,23 @@ namespace gpumon {
         // JSON & Logging Utilities
         // ============================================================================
 
+        inline void rotateFile(LogFileState& fs) {
+            if (fs.stream.is_open()) fs.stream.close();
+
+            std::string path = fs.basePath + ".log";
+            if (fs.index > 0) {
+                path = fs.basePath + "." + std::to_string(fs.index) + ".log";
+            }
+
+            fs.stream.open(path, std::ios::out | std::ios::app);
+            fs.currentBytes = 0;
+
+            if (fs.stream.is_open()) {
+                fs.stream.seekp(0, std::ios::end);
+                fs.currentBytes = fs.stream.tellp();
+            }
+        }
+
         inline std::string escapeJson(const std::string& str) {
             std::ostringstream oss;
             for (const char c : str) {
@@ -115,22 +142,31 @@ namespace gpumon {
 
             if (!state.initialized) return;
 
+            auto writeTo = [&](LogFileState& fs) {
+                if (fs.currentBytes + jsonLine.size() + 1 > state.maxSizeBytes) {
+                    fs.index++;
+                    rotateFile(fs);
+                }
+
+                if (fs.stream.is_open()) {
+                    fs.stream << jsonLine << '\n';
+                    fs.stream.flush();
+                    fs.currentBytes += jsonLine.size() + 1;
+                }
+            };
+
             // Meta events (Init/Shutdown) write to ALL open files to keep them self-contained
             if (category == LogCategory::Meta) {
                 for (auto& pair : state.logFiles) {
-                    if (pair.second.is_open()) {
-                        pair.second << jsonLine << '\n';
-                        pair.second.flush();
-                    }
+                    writeTo(pair.second);
                 }
                 return;
             }
 
             // Normal events write to their specific file
             auto it = state.logFiles.find(category);
-            if (it != state.logFiles.end() && it->second.is_open()) {
-                it->second << jsonLine << '\n';
-                it->second.flush();
+            if (it != state.logFiles.end()) {
+                writeTo(it->second);
             }
         }
 

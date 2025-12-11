@@ -26,7 +26,7 @@ def run_benchmark():
 
     try:
         # --- 3. Setup Data (Heavy Load) ---
-        N = 10240 # 2048x2048 matrix = decent workload for testing
+        N = 2048 # 2048x2048 matrix = decent workload for testing
         print(f"[Setup] Generating {N}x{N} matrices...")
 
         # Host memory

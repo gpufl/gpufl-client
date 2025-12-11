@@ -20,6 +20,7 @@ namespace gpumon {
         state.appName = opts.appName;
         state.pid = detail::getPid();
         state.sampleIntervalMs = opts.sampleIntervalMs;
+        state.maxSizeBytes = opts.maxFileSizeBytes;
 
         // Call Backend Init (No-op for CUDA, but needed for pattern)
         backend::initialize();
@@ -29,17 +30,20 @@ namespace gpumon {
             basePath = "gpumon"; // Fallback to local CWD file if user provided nothing
         }
 
-        // Helper lambda to open file
-        auto openLog = [&](const LogCategory cat, const std::string &suffix) {
-            const std::string path = detail::generateLogPath(basePath, suffix);
-            state.logFiles[cat].open(path, std::ios::out | std::ios::app);
+
+        auto setupLog = [&](const LogCategory cat, const std::string &suffix) {
+            state.logFiles[cat].basePath = basePath + "." + suffix;
+            detail::rotateFile(state.logFiles[cat]);
+            if (!state.logFiles[cat].stream.is_open()) {
+                fprintf(stderr, "[GPUMON] ERROR: Failed to open log file: %s.log\n", state.logFiles[cat].basePath.c_str());
+            }
         };
 
         state.initialized = true; // Set true early so we can open files
 
-        openLog(LogCategory::Kernel, "kernel");
-        openLog(LogCategory::Scope,  "scope");
-        openLog(LogCategory::System, "system");
+        setupLog(LogCategory::Kernel, "kernel");
+        setupLog(LogCategory::Scope,  "scope");
+        setupLog(LogCategory::System, "system");
 
         // 4. Log Init Event to ALL files (Meta)
         std::ostringstream oss;
@@ -74,7 +78,7 @@ namespace gpumon {
 
         // Close all files
         for (auto& pair : state.logFiles) {
-            if (pair.second.is_open()) pair.second.close();
+            if (pair.second.stream.is_open()) pair.second.stream.close();
         }
         state.logFiles.clear();
     }
