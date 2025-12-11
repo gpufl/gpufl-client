@@ -31,6 +31,7 @@ jobs:
         with:
           cuda: '12.3.0'
           method: 'network' # Faster download
+          use-github-cache: false
 
       # 3. Install Build Tools
       - name: Install build dependencies
