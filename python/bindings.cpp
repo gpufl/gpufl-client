@@ -29,10 +29,33 @@ PYBIND11_MODULE(_gpumon_client, m) {
         opts.appName = app_name;
         opts.logPath = log_path;
         opts.sampleIntervalMs = interval_ms;
+        // Optional: Expose max file size to Python init if you want customizable rolling
+        // opts.maxFileSizeBytes = 2 * 1024 * 1024;
         return gpumon::init(opts);
     }, py::arg("app_name"), py::arg("log_path") = "", py::arg("interval_ms") = 0);
 
     m.def("shutdown", &gpumon::shutdown);
+
+    // --- ADDED THIS SECTION ---
+    m.def("log_kernel", [](std::string name,
+                           int gx, int gy, int gz,
+                           int bx, int by, int bz,
+                           long long start_ns, long long end_ns) {
+
+        // Construct dummy CUDA types from Python integers
+        dim3 grid(gx, gy, gz);
+        dim3 block(bx, by, bz);
+
+        // Empty attributes (Python doesn't have access to this low-level info)
+        cudaFuncAttributes attrs = {};
+
+        gpumon::detail::logKernelEvent(name, start_ns, end_ns, grid, block, 0, "Success", attrs);
+
+    }, py::arg("name"),
+       py::arg("gx"), py::arg("gy"), py::arg("gz"),
+       py::arg("bx"), py::arg("by"), py::arg("bz"),
+       py::arg("start_ns"), py::arg("end_ns"));
+    // --------------------------
 
     py::class_<PyScope>(m, "Scope")
         .def(py::init<std::string, std::string>(), py::arg("name"), py::arg("tag") = "")

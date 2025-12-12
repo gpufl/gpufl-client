@@ -20,6 +20,7 @@ namespace gpumon {
         state.appName = opts.appName;
         state.pid = detail::getPid();
         state.sampleIntervalMs = opts.sampleIntervalMs;
+        state.maxSizeBytes = opts.maxFileSizeBytes;
 
         // Call Backend Init (No-op for CUDA, but needed for pattern)
         backend::initialize();
@@ -29,17 +30,20 @@ namespace gpumon {
             basePath = "gpumon"; // Fallback to local CWD file if user provided nothing
         }
 
-        // Helper lambda to open file
-        auto openLog = [&](const LogCategory cat, const std::string &suffix) {
-            const std::string path = detail::generateLogPath(basePath, suffix);
-            state.logFiles[cat].open(path, std::ios::out | std::ios::app);
+
+        auto setupLog = [&](const LogCategory cat, const std::string &suffix) {
+            state.logFiles[cat].basePath = basePath + "." + suffix;
+            detail::rotateFile(state.logFiles[cat]);
+            if (!state.logFiles[cat].stream.is_open()) {
+                fprintf(stderr, "[GPUMON] ERROR: Failed to open log file: %s.log\n", state.logFiles[cat].basePath.c_str());
+            }
         };
 
         state.initialized = true; // Set true early so we can open files
 
-        openLog(LogCategory::Kernel, "kernel");
-        openLog(LogCategory::Scope,  "scope");
-        openLog(LogCategory::System, "system");
+        setupLog(LogCategory::Kernel, "kernel");
+        setupLog(LogCategory::Scope,  "scope");
+        setupLog(LogCategory::System, "system");
 
         // 4. Log Init Event to ALL files (Meta)
         std::ostringstream oss;
@@ -74,7 +78,7 @@ namespace gpumon {
 
         // Close all files
         for (auto& pair : state.logFiles) {
-            if (pair.second.is_open()) pair.second.close();
+            if (pair.second.stream.is_open()) pair.second.stream.close();
         }
         state.logFiles.clear();
     }
@@ -93,7 +97,7 @@ namespace gpumon {
             if (!state.initialized) return;
 
             // 1. Log Scope Begin with initial snapshot
-            auto snapshots = backend::get_device_snapshots();
+            const auto snapshots = backend::get_device_snapshots();
             logScopeEvent(LogCategory::Scope, "scope_begin", tsStart_, snapshots);
             // 2. Start Background Sampler (if configured)
             if (state.sampleIntervalMs > 0) {
@@ -139,7 +143,7 @@ namespace gpumon {
         // Helper to format and write the JSON
         void logScopeEvent(const LogCategory category, const char* type, const int64_t timestamp,
                       const std::vector<detail::DeviceSnapshot>& snapshots,
-                      const int64_t startTime = 0) {
+                      const int64_t startTime = 0) const {
 
             const auto& state = detail::getState();
             std::ostringstream oss;
@@ -173,7 +177,7 @@ namespace gpumon {
                 if (stopSampling_) break;
                 auto snapshots = backend::get_device_snapshots();
 
-                int64_t now = detail::getTimestampNs();
+                const int64_t now = detail::getTimestampNs();
 
                 logScopeEvent(LogCategory::Scope, "scope_sample", now, snapshots);
             }
