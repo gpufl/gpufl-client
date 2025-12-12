@@ -1,22 +1,22 @@
-#ifndef GPUMON_CUDA_HPP
-#define GPUMON_CUDA_HPP
+#ifndef GPUFL_CUDA_HPP
+#define GPUFL_CUDA_HPP
 #include <cuda_runtime.h>
 #include <map>
 #include <vector>
 #include "../core/common.hpp"
 
-#ifdef GPUMON_ENABLE_NVML
+#if defined(GFL_ENABLE_NVML)
     #include <nvml.h>
 #endif
-namespace gpumon {
+namespace gpufl {
     namespace backend {
         inline void initialize() {
-            #ifdef GPUMON_ENABLE_NVML
+            #if defined(GFL_ENABLE_NVML)
                 nvmlInit(); // Initialize NVML if enabled
             #endif
         }
         inline void shutdown() {
-            #ifdef GPUMON_ENABLE_NVML
+            #if defined(GFL_ENABLE_NVML)
                 nvmlShutdown();
             #endif
         }
@@ -46,7 +46,7 @@ namespace gpumon {
             static std::map<int, DeviceStaticInfo> cache;
             static std::mutex cacheMutex;
 
-            std::lock_guard<std::mutex> lock(cacheMutex);
+            std::lock_guard lock(cacheMutex);
             if (cache.find(devId) == cache.end()) {
                 // Not in cache, query driver
                 cudaDeviceProp p{};
@@ -67,7 +67,7 @@ namespace gpumon {
         inline std::vector<detail::DeviceSnapshot> get_device_snapshots() {
             std::vector<detail::DeviceSnapshot> snapshots;
 
-#ifdef GPUMON_ENABLE_NVML
+#if defined(GFL_ENABLE_NVML)
             {
                 unsigned int deviceCount = 0;
                 if (nvmlDeviceGetCount(&deviceCount) != NVML_SUCCESS || deviceCount == 0) return snapshots;
@@ -235,29 +235,55 @@ namespace gpumon {
     }
 }
 
-#define GPUMON_LAUNCH(kernel, grid, block, sharedMem, stream, ...) \
+#define GFL_LAUNCH(kernel, grid, block, sharedMem, stream, ...) \
     do { \
-        int64_t _ts = gpumon::detail::getTimestampNs(); \
+        int64_t _ts = gpufl::detail::getTimestampNs(); \
         kernel<<<grid, block, sharedMem, stream>>>(__VA_ARGS__); \
         cudaError_t _err = cudaGetLastError(); \
         cudaDeviceSynchronize(); \
-        int64_t _te = gpumon::detail::getTimestampNs(); \
+        int64_t _te = gpufl::detail::getTimestampNs(); \
         /* Fetch Static Attributes (Cached) */ \
-        auto& _attrs = gpumon::backend::get_kernel_static_attrs(kernel); \
-        gpumon::detail::logKernelEvent(#kernel, _ts, _te, grid, block, sharedMem, gpumon::detail::getCudaErrorString(_err), _attrs); \
+        auto& _attrs = gpufl::backend::get_kernel_static_attrs(kernel); \
+        gpufl::detail::logKernelEvent(#kernel, _ts, _te, grid, block, sharedMem, gpufl::detail::getCudaErrorString(_err), _attrs); \
     } while(0)
 
 // wraps a single kernel launch with custom tag
-#define GPUMON_LAUNCH_TAGGED(tag, kernel, grid, block, sharedMem, stream, ...) \
+#define GFL_LAUNCH_TAGGED(tag, kernel, grid, block, sharedMem, stream, ...) \
     do { \
-        int64_t _ts = gpumon::detail::getTimestampNs(); \
+        int64_t _ts = gpufl::detail::getTimestampNs(); \
         kernel<<<grid, block, sharedMem, stream>>>(__VA_ARGS__); \
         cudaError_t _err = cudaGetLastError(); \
         cudaDeviceSynchronize(); \
-        int64_t _te = gpumon::detail::getTimestampNs(); \
+        int64_t _te = gpufl::detail::getTimestampNs(); \
         /* Fetch Static Attributes (Cached) */ \
-        auto& _attrs = gpumon::backend::get_kernel_static_attrs(kernel); \
-        gpumon::detail::logKernelEvent(#kernel, _ts, _te, grid, block, sharedMem, gpumon::detail::getCudaErrorString(_err), _attrs, tag); \
+        auto& _attrs = gpufl::backend::get_kernel_static_attrs(kernel); \
+        gpufl::detail::logKernelEvent(#kernel, _ts, _te, grid, block, sharedMem, gpufl::detail::getCudaErrorString(_err), _attrs, tag); \
+    } while(0)
+
+// Backward-compatibility aliases
+#define GFL_LAUNCH(kernel, grid, block, sharedMem, stream, ...) \
+    do { \
+        int64_t _ts = gpufl::detail::getTimestampNs(); \
+        kernel<<<grid, block, sharedMem, stream>>>(__VA_ARGS__); \
+        cudaError_t _err = cudaGetLastError(); \
+        cudaDeviceSynchronize(); \
+        int64_t _te = gpufl::detail::getTimestampNs(); \
+        /* Fetch Static Attributes (Cached) */ \
+        auto& _attrs = gpufl::backend::get_kernel_static_attrs(kernel); \
+        gpufl::detail::logKernelEvent(#kernel, _ts, _te, grid, block, sharedMem, gpufl::detail::getCudaErrorString(_err), _attrs); \
+    } while(0)
+
+// wraps a single kernel launch with custom tag
+#define GFL_LAUNCH_TAGGED(tag, kernel, grid, block, sharedMem, stream, ...) \
+    do { \
+        int64_t _ts = gpufl::detail::getTimestampNs(); \
+        kernel<<<grid, block, sharedMem, stream>>>(__VA_ARGS__); \
+        cudaError_t _err = cudaGetLastError(); \
+        cudaDeviceSynchronize(); \
+        int64_t _te = gpufl::detail::getTimestampNs(); \
+        /* Fetch Static Attributes (Cached) */ \
+        auto& _attrs = gpufl::backend::get_kernel_static_attrs(kernel); \
+        gpufl::detail::logKernelEvent(#kernel, _ts, _te, grid, block, sharedMem, gpufl::detail::getCudaErrorString(_err), _attrs, tag); \
     } while(0)
 
 #endif
