@@ -135,6 +135,12 @@ if(BUILD_PYTHON)
     pybind11_add_module(_gpufl_client python/bindings.cpp)
 
     target_link_libraries(_gpufl_client PRIVATE gpufl::gpufl)
+
+    # If CUDA is available, link it to the Python module
+    if(GPUFL_HAS_CUDA)
+        target_link_libraries(_gpufl_client PRIVATE CUDA::cudart)
+    endif()
+
     install(TARGETS _gpufl_client DESTINATION gpufl)
 endif()
 
