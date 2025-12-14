@@ -1,4 +1,3 @@
-#pragma once
 #include "gpufl/cuda/cuda.hpp"
 #include "gpufl/core/events.hpp"
 #include "gpufl/core/runtime.hpp"
