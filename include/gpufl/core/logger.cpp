@@ -90,7 +90,7 @@ namespace gpufl {
     std::string Logger::LogChannel::makePathLocked() const {
         std::ostringstream oss;
         // Naming format: basePath.category.index.log
-        oss << opt_.basePath << "." << name_ << "." << index_ << ".log";
+        oss << "." << name_ << "." << index_ << ".log";
 
         return opt_.basePath + oss.str();
     }
