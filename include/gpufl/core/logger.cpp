@@ -1,6 +1,6 @@
 #include "gpufl/core/logger.hpp"
 #include <sstream>
-#include <utility>
+#include <memory>
 
 namespace gpufl {
     static inline std::string jsonEscape(const std::string& s) {

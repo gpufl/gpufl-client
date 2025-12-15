@@ -5,6 +5,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <memory>
 
 #include "gpufl/core/events.hpp"
 
