@@ -1,8 +1,12 @@
 #include "gpufl/core/logger.hpp"
 #include <sstream>
 #include <memory>
+#include <iostream>
+#include <filesystem>
 
 namespace gpufl {
+    namespace fs = std::filesystem;
+
     static inline std::string jsonEscape(const std::string& s) {
         std::ostringstream oss;
         for (char c : s) {
@@ -57,6 +61,7 @@ namespace gpufl {
         : name_(std::move(name)), opt_(std::move(opt)) {
         if (!opt_.basePath.empty()) {
             opened_ = true;
+            ensureOpenLocked();
         }
     }
 
@@ -86,7 +91,10 @@ namespace gpufl {
         std::ostringstream oss;
         // Naming format: basePath.category.index.log
         oss << opt_.basePath << "." << name_ << "." << index_ << ".log";
-        return oss.str();
+
+        fs::path base(opt_.basePath);
+
+        return base.string() + oss.str();
     }
 
     void Logger::LogChannel::ensureOpenLocked() {
@@ -94,8 +102,22 @@ namespace gpufl {
         if (stream_.is_open()) return;
 
         const std::string path = makePathLocked();
-        stream_.open(path, std::ios::out | std::ios::app);
-        currentBytes_ = 0;
+        fs::path p(path);
+
+        // Ensure the parent directory exists (just in case)
+        if (p.has_parent_path()) {
+            std::error_code ec;
+            fs::create_directories(p.parent_path(), ec);
+            // ignore error, it might already exist
+        }
+
+        stream_.open(p, std::ios::out | std::ios::app);
+
+        if (!stream_.good()) {
+            std::cerr << "[GPUFL] ERROR: Failed to open log file: " << p.string() << std::endl;
+        } else {
+            currentBytes_ = 0;
+        }
     }
 
     void Logger::LogChannel::rotateLocked() {
