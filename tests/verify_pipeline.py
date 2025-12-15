@@ -17,11 +17,11 @@ def test_pipeline():
     try:
         print("2. Initializing GPUFL...")
         # Passing 0 for interval
-        gfl.init("CI_Test_App", log_base_path, 5)
-
+        res = gfl.init("CI_Test_App", log_base_path, 5)
+        print(f"result = {res}")
         print("3. Running Scope...")
         with gfl.Scope("ci_scope_01", "test_tag"):
-            time.sleep(0.1)
+            time.sleep(100)
             x = 0
             for i in range(1000): x += i
 
@@ -30,6 +30,7 @@ def test_pipeline():
 
         print("5. Verifying Log Files...")
         files = sorted(os.listdir(temp_dir))
+        print(f" files = {files}")
         print(f"   Files found in {temp_dir}:")
         for f in files:
             full = os.path.join(temp_dir, f)
