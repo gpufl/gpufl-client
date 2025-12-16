@@ -91,8 +91,9 @@ namespace gpufl {
         std::ostringstream oss;
         // Naming format: basePath.category.index.log
         oss << "." << name_ << "." << index_ << ".log";
-
-        return opt_.basePath + oss.str();
+        std::string finalPath = opt_.basePath + oss.str();
+        std::cerr << "[GPUFL DEBUG] makePathLocked: " << finalPath << std::endl;
+        return finalPath;
     }
 
     void Logger::LogChannel::ensureOpenLocked() {

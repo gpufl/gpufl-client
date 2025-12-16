@@ -21,7 +21,7 @@ def test_pipeline():
         print(f"result = {res}")
         print("3. Running Scope...")
         with gfl.Scope("ci_scope_01", "test_tag"):
-            time.sleep(100)
+            time.sleep(0.1)
             x = 0
             for i in range(1000): x += i
 

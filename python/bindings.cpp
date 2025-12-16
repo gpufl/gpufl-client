@@ -35,34 +35,34 @@ PYBIND11_MODULE(_gpufl_client, m) {
 
     m.def("init", [](const std::string &app_name,
                  const std::string &log_path,
-                 const int interval_ms,
-                 const std::string &backend) {
-            gpufl::InitOptions opts;
-            opts.appName = app_name;
-            opts.logPath = log_path;
-            opts.scopeSampleRateMs = interval_ms;
-            opts.systemSampleRateMs = interval_ms;
+                 const int sampleIntervalMs,
+                 const std::string &backend)->bool {
+        gpufl::InitOptions opts;
+        opts.appName = app_name;
+        opts.logPath = log_path;
+        opts.scopeSampleRateMs = sampleIntervalMs;
+        opts.systemSampleRateMs = sampleIntervalMs;
 
-            // runtime backend selection
-            if (backend == "auto") {
-                opts.backend = gpufl::BackendKind::Auto;
-            } else if (backend == "nvidia") {
-                opts.backend = gpufl::BackendKind::Nvidia;
-            } else if (backend == "amd") {
-                opts.backend = gpufl::BackendKind::Amd;
-            } else if (backend == "none") {
-                opts.backend = gpufl::BackendKind::None;
-            } else {
-                throw std::runtime_error(
-                    "Invalid backend: " + backend +
-                    " (expected: 'auto', 'nvidia', 'amd', 'none')");
-            }
+        // runtime backend selection
+        if (backend == "auto") {
+            opts.backend = gpufl::BackendKind::Auto;
+        } else if (backend == "nvidia") {
+            opts.backend = gpufl::BackendKind::Nvidia;
+        } else if (backend == "amd") {
+            opts.backend = gpufl::BackendKind::Amd;
+        } else if (backend == "none") {
+            opts.backend = gpufl::BackendKind::None;
+        } else {
+            throw std::runtime_error(
+                "Invalid backend: " + backend +
+                " (expected: 'auto', 'nvidia', 'amd', 'none')");
+        }
 
-            return gpufl::init(opts);
-        }, py::arg("app_name"),
-           py::arg("log_path") = "",
-           py::arg("interval_ms") = 0,
-           py::arg("backend") = "auto");
+        return gpufl::init(opts);
+    }, py::arg("app_name"),
+       py::arg("log_path") = "",
+       py::arg("interval_ms") = 0,
+       py::arg("backend") = "auto");
 
     m.def("system_start", [](const int interval_ms, std::string name) { gpufl::systemStart(interval_ms, std::move(name)); },
         py::arg("interval_ms"), py::arg("name") = "system");
