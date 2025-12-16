@@ -1,17 +1,11 @@
-import gpufl as gfl
+from gpufl._gpufl_client import Scope, init, shutdown
 import os
 import time
 import tempfile
 import shutil
 import glob
 import json
-import sys
 
-
-print("gpufl module file:", getattr(gfl, "__file__", None))
-print("python exe:", sys.executable)
-print("sys.path[0:5]:", sys.path[:5])
-print("init func:", gfl.init)
 
 def test_pipeline():
     print("--- Starting GPUFL Multi-Log Pipeline Verification ---")
@@ -24,16 +18,16 @@ def test_pipeline():
     try:
         print("2. Initializing GPUFL...")
         # Passing 0 for interval
-        res = gfl.init("CI_Test_App", log_base_path, 5)
+        res = init("CI_Test_App", log_base_path, 5)
         print(f"result = {res}")
         print("3. Running Scope...")
-        with gfl.Scope("ci_scope_01", "test_tag"):
+        with Scope("ci_scope_01", "test_tag"):
             time.sleep(0.1)
             x = 0
             for i in range(1000): x += i
 
         print("4. Shutting down...")
-        gfl.shutdown()
+        shutdown()
 
         print("5. Verifying Log Files...")
         files = sorted(os.listdir(temp_dir))
