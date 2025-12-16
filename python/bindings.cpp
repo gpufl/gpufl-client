@@ -45,8 +45,7 @@ PYBIND11_MODULE(_gpufl_client, m) {
         return gpufl::init(opts);
     }, py::arg("app_name"),
        py::arg("log_path") = "",
-       py::arg("interval_ms") = 0,
-       py::arg("backend") = "auto");
+       py::arg("interval_ms") = 0);
 
     m.def("system_start", [](const int interval_ms, std::string name) { gpufl::systemStart(interval_ms, std::move(name)); },
         py::arg("interval_ms"), py::arg("name") = "system");
