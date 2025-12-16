@@ -1,6 +1,9 @@
-#include <gpufl/gpufl.hpp>
 #include <iostream>
 #include <cuda_runtime.h>
+#include "gpufl/gpufl.hpp"
+#include "gpufl/core/common.hpp"
+#include "gpufl/cuda/cuda.hpp"
+#include "gpufl/cuda/launch.hpp"
 
 __global__
 void vectorAdd(int* a, int* b, int* c, int n) {
@@ -31,7 +34,8 @@ int main() {
     gpufl::InitOptions opts;
     opts.appName = "block_style_demo";
     opts.logPath = "gfl_block.log";
-    opts.sampleIntervalMs = 5;
+    opts.scopeSampleRateMs = 5;
+    opts.systemSampleRateMs = 0;
     
     if (!gpufl::init(opts)) {
         std::cerr << "Failed to initialize gpufl" << std::endl;

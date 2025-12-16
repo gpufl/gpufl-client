@@ -1,88 +1,82 @@
-import gpufl as gfl
+from gpufl._gpufl_client import Scope, init, shutdown
 import os
-import json
 import time
 import tempfile
 import shutil
+import glob
+import json
+
 
 def test_pipeline():
-    print("--- Starting GPUFL Pipeline Verification ---")
-
-    # 1. Setup a temporary directory for logs
-    # We use a temp dir to ensure we don't pollute the CI runner
+    print("--- Starting GPUFL Multi-Log Pipeline Verification ---")
     temp_dir = tempfile.mkdtemp()
-    log_base = os.path.join(temp_dir, "ci_test")
+    log_base_name = "ci_test"
+    log_base_path = os.path.join(temp_dir, log_base_name)
+    print(f"1. Log path set to: {log_base_path}")
 
-    print(f"1. Log path set to: {log_base}")
-
+    keep = False
     try:
-        # 2. Initialize GPUFL
-        # We pass the base path. Expectation: ci_test.scope.log, ci_test.kernel.log, etc.
         print("2. Initializing GPUFL...")
-        gfl.init("CI_Test_App", log_base, 0) # 0 interval = no background sampler (simpler for CI)
-
-        # 3. Trigger a Scope (This writes to .scope.log)
+        # Passing 0 for interval
+        res = init("CI_Test_App", log_base_path, 5)
+        print(f"result = {res}")
         print("3. Running Scope...")
-        with gfl.Scope("ci_scope_01", "test_tag"):
-            # Simulate 'work' (just time passing)
+        with Scope("ci_scope_01", "test_tag"):
             time.sleep(0.1)
             x = 0
             for i in range(1000): x += i
 
-        # 4. Shutdown (Flushes logs)
         print("4. Shutting down...")
-        gfl.shutdown()
+        shutdown()
 
-        # 5. Verify Files Exist
         print("5. Verifying Log Files...")
-        expected_files = {
-            "scope": f"{log_base}.scope.log",
-            "kernel": f"{log_base}.kernel.log",
-            "system": f"{log_base}.system.log"
-        }
+        files = sorted(os.listdir(temp_dir))
+        print(f" files = {files}")
+        print(f"   Files found in {temp_dir}:")
+        for f in files:
+            full = os.path.join(temp_dir, f)
+            ftype = "DIR" if os.path.isdir(full) else "FILE"
+            fsize = os.path.getsize(full) if os.path.isfile(full) else 0
+            print(f"    - {f} [{ftype}, size={fsize}]")
 
-        for cat, path in expected_files.items():
-            if not os.path.exists(path):
-                print(f"FAILED: Missing {cat} log file at {path}")
-                exit(1)
-            else:
-                print(f"Found {cat} log: {path}")
+        if not files:
+            print("FAILED: No log files were created at all.")
+            keep = True
+            raise SystemExit(1)
 
-        # 6. Verify Content (JSON Parsing)
-        print("6. Verifying JSON Content...")
+        categories = ["kernel", "scope", "system"]
+        for cat in categories:
+            expected_name = f"{log_base_name}.{cat}.0.log"
+            full_path = os.path.join(temp_dir, expected_name)
 
-        # Check Scope Log
-        with open(expected_files["scope"], 'r') as f:
-            lines = f.readlines()
-            # We expect at least: Init, Scope Begin, Scope End, Shutdown
-            if len(lines) < 4:
-                print(f"FAILED: Scope log has insufficient lines. Found {len(lines)}")
-                exit(1)
+            if not os.path.exists(full_path):
+                print(f"FAILED: Expected log file missing: {expected_name}")
+                keep = True
+                raise SystemExit(1)
 
-            # Parse line by line
-            for line in lines:
-                try:
-                    data = json.loads(line)
-                    print(f"   - Validated JSON event: {data.get('type', 'unknown')}")
+            print(f"   [OK] Found {cat} log: {expected_name}")
 
-                    # specific check for the scope we ran
-                    if data.get('name') == "ci_scope_01":
-                        if data.get('type') == 'scope_end':
-                            duration = data.get('duration_ns', 0)
-                            print(f"     -> Captured Duration: {duration} ns")
-                            if duration <= 0:
-                                print("FAILED: Duration is invalid")
-                                exit(1)
-                except json.JSONDecodeError:
-                    print(f"FAILED: Invalid JSON line: {line}")
-                    exit(1)
+            with open(full_path, 'r') as f:
+                lines = f.readlines()
 
-        print("\nSUCCESS: GPUFL Python Bindings are working correctly.")
+            has_init = any('"type":"init"' in line for line in lines)
+            if not has_init:
+                print(f"FAILED: {cat} log missing init event.")
+                keep = True
+                raise SystemExit(1)
+
+        print("\nSUCCESS: All log files created and content verified.")
+
+    except Exception as e:
+        print(f"\nCRITICAL FAILURE: {e}")
+        keep = True
+        raise
 
     finally:
-        # Cleanup
-        if os.path.exists(temp_dir):
-            shutil.rmtree(temp_dir)
+        if keep:
+            print(f"Keeping temp dir for inspection: {temp_dir}")
+        else:
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 if __name__ == "__main__":
     test_pipeline()

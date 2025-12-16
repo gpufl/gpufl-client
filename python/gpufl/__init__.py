@@ -13,10 +13,19 @@ if os.name == 'nt':
 # 2. Import C++ Core Bindings
 try:
     from ._gpufl_client import Scope, init, shutdown, log_kernel
-except ImportError:
-    def init(*args, **kwargs): pass
-    def shutdown(): pass
-    def log_kernel(*args): pass
+except Exception as e:
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        raise RuntimeError(
+            "Failed to import native extension gpufl._gpufl_client. "
+            "This usually means a missing DLL dependency on Windows "
+            "(e.g., nvml.dll or CUDA runtime). Original error: "
+            f"{repr(e)}"
+        ) from e
+
+    # For local dev, keep a safe fallback (optional)
+    def init(*args, **kwargs): return False
+    def shutdown(): return None
+    def log_kernel(*args): return None
     class Scope:
         def __init__(self, *args): pass
         def __enter__(self): return self
