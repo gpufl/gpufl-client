@@ -1,10 +1,10 @@
-from gpufl.viz import read_df
-from gpufl.viz.timeline import plot_memory_timeline, plot_utilization_timeline
-import matplotlib.pyplot as plt
+import gpufl.viz as viz
 
-df = read_df("stress.scope.log")
+# 1. Show single run (Kernels, Host, GPU)
+viz.init("*.log")
 
-plot_memory_timeline(df, gpu_id=0).show()
-plot_utilization_timeline(df, gpu_id=0).show()
+viz.show(app="PythonDemo")
 
-plt.show()
+viz.show(tag="io-bound")
+
+viz.compare(group_by="app", metric="cpu", app=["PythonDemo", "PythonDemo2"])

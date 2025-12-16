@@ -1,33 +1,19 @@
-"""Visualization and offline analysis helpers for GPU Flight (gpufl).
+try:
+    from .visualizer import init, show, compare, get_data
+    from .reader import read_df, read_events
+    from .timeline import (
+        plot_kernel_timeline,
+        plot_scope_timeline,
+        plot_host_timeline,
+        plot_memory_timeline,
+        plot_utilization_timeline
+    )
+except ImportError:
+    # Fallback if pandas/matplotlib are missing
+    def show(*args, **kwargs):
+        print("Error: gpufl[viz] dependencies (pandas/matplotlib) not installed.")
 
-This subpackage is intentionally optional: it requires extra dependencies (pandas/matplotlib).
-Install with:
-  pip install gpufl[viz]
+    def init(*args, **kwargs):
+        print("Error: gpufl[viz] dependencies (pandas/matplotlib) not installed.")
 
-API (stable-ish):
-  - read_events(...)
-  - read_df(...)
-  - summarize_kernels(...)
-  - summarize_scopes(...)
-  - plot_kernel_timeline(...)
-"""
-
-from .reader import read_events, read_df
-from .summary import summarize_kernels, summarize_scopes
-from .timeline import (
-    plot_kernel_timeline,
-    plot_scope_timeline,
-    plot_memory_timeline,
-    plot_utilization_timeline,
-)
-
-__all__ = [
-    "read_events",
-    "read_df",
-    "summarize_kernels",
-    "summarize_scopes",
-    "plot_kernel_timeline",
-    "plot_scope_timeline",
-    "plot_memory_timeline",
-    "plot_utilization_timeline",
-]
+    compare = show

@@ -185,6 +185,19 @@ namespace gpufl {
 
     // --- Broadcast Lifecycle Events ---
 
+
+    std::string Logger::hostToJson(const HostSample& h) {
+        std::ostringstream oss;
+        oss.precision(1); // One decimal place for CPU is enough
+        oss << std::fixed
+            << "{"
+            << "\"cpu_pct\":" << h.cpuUtilPercent
+            << ",\"ram_used_mib\":" << h.ramUsedMiB
+            << ",\"ram_total_mib\":" << h.ramTotalMiB
+            << "}";
+        return oss.str();
+    }
+
     void Logger::logInit(const InitEvent& e, const std::string& devicesJson) {
         std::ostringstream oss;
         oss << "{"
@@ -259,6 +272,7 @@ namespace gpufl {
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"tag\":\"" << jsonEscape(e.tag) << "\""
             << ",\"ts_ns\":" << e.tsNs
+            << ",\"host\":" << hostToJson(e.host)
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
         chanScope_->write(oss.str());
@@ -274,6 +288,7 @@ namespace gpufl {
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"tag\":\"" << jsonEscape(e.tag) << "\""
             << ",\"ts_ns\":" << e.tsNs
+            << ",\"host\":" << hostToJson(e.host)
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
         chanScope_->write(oss.str());
@@ -289,6 +304,7 @@ namespace gpufl {
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"tag\":\"" << jsonEscape(e.tag) << "\""
             << ",\"ts_ns\":" << e.tsNs
+            << ",\"host\":" << hostToJson(e.host)
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
         chanScope_->write(oss.str());
@@ -303,6 +319,7 @@ namespace gpufl {
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"ts_ns\":" << e.tsNs
+            << ",\"host\":" << hostToJson(e.host)
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
         chanSystem_->write(oss.str());
@@ -317,6 +334,7 @@ namespace gpufl {
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"ts_ns\":" << e.tsNs
+            << ",\"host\":" << hostToJson(e.host)
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
         chanSystem_->write(oss.str());
@@ -331,6 +349,7 @@ namespace gpufl {
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"ts_ns\":" << e.tsNs
+            << ",\"host\":" << hostToJson(e.host)
             << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
         chanSystem_->write(oss.str());

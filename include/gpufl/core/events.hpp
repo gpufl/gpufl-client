@@ -4,6 +4,12 @@
 #include <vector>
 
 namespace gpufl {
+    struct HostSample {
+        double cpuUtilPercent = 0.0; // System-wide CPU usage (0.0 - 100.0)
+        uint64_t ramUsedMiB = 0;
+        uint64_t ramTotalMiB = 0;
+    };
+
     struct DeviceSample {
         int deviceId = 0;
         std::string name;
@@ -21,11 +27,6 @@ namespace gpufl {
         unsigned int clockGfx = 0;     // MHz
         unsigned int clockSm = 0;      // MHz
         unsigned int clockMem = 0;     // MHz
-    };
-
-    struct DeviceSnapshot {
-        int64_t tsNs = 0;
-        std::vector<DeviceSample> devices;
     };
 
     struct InitEvent {
@@ -71,6 +72,8 @@ namespace gpufl {
         std::string name;
         std::string tag;
         int64_t tsNs = 0;
+
+        HostSample host;
         std::vector<DeviceSample> devices;
     };
 
@@ -81,6 +84,8 @@ namespace gpufl {
         std::string name;
         std::string tag;
         int64_t tsNs = 0;
+
+        HostSample host;
         std::vector<DeviceSample> devices;
     };
 
@@ -91,6 +96,8 @@ namespace gpufl {
         std::string name;
         std::string tag;
         int64_t tsNs = 0;
+
+        HostSample host;
         std::vector<DeviceSample> devices;
     };
 
@@ -99,6 +106,8 @@ namespace gpufl {
         std::string app;
         std::string name;
         int64_t tsNs{};
+
+        HostSample host;
         std::vector<DeviceSample> devices;
     };
 
@@ -107,6 +116,8 @@ namespace gpufl {
         std::string app;
         std::string name;
         int64_t tsNs = 0;
+
+        HostSample host;
         std::vector<DeviceSample> devices;
     };
 
@@ -115,6 +126,8 @@ namespace gpufl {
         std::string app;
         std::string name;
         int64_t tsNs{};
+
+        HostSample host;
         std::vector<DeviceSample> devices;
     };
 }

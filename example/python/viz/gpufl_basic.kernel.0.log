@@ -1,0 +1,2 @@
+{"type":"init","pid":35696,"app":"PythonDemo","logPath":"gpufl_basic","ts_ns":444252753312100,"scope_rate_ms":5,"system_rate_ms":5,"devices":[{"id":0,"name":"NVIDIA GeForce RTX 5060 Laptop GPU","uuid":"GPU-fc2e721b-a3b1-dc5b-63f0-76b7e624f037","pci_bus":2,"total_mib":8151}]}
+{"type":"shutdown","pid":35696,"app":"PythonDemo","ts_ns":444253513666700}

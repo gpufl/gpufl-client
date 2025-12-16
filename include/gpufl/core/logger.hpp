@@ -46,6 +46,8 @@ namespace gpufl {
         void logSystemStop(const SystemStopEvent& e);
         void logSystemSample(const SystemSampleEvent& e);
 
+        static std::string hostToJson(const HostSample& h);
+
     private:
         class LogChannel {
         public:
