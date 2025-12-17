@@ -1,5 +1,4 @@
 #include "gpufl/core/runtime.hpp"
-
 namespace gpufl {
     static std::unique_ptr<Runtime> g_rt;
     Runtime* runtime() { return g_rt.get(); }

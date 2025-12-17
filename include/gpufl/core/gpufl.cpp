@@ -9,6 +9,7 @@
 #include "gpufl/core/runtime.hpp"
 #include "gpufl/core/logger.hpp"
 #include "gpufl/core/common.hpp"
+#include "gpufl/backends/host_collector.hpp"
 
 #if GPUFL_HAS_CUDA || defined(__CUDACC__)
   #include <cuda_runtime.h>
@@ -98,6 +99,7 @@ namespace gpufl {
         rt->appName = opts.appName.empty() ? "gpufl" : opts.appName;
 
         rt->logger = std::make_shared<Logger>();
+        rt->hostCollector = std::make_unique<HostCollector>();
 
         const std::string logPath = opts.logPath.empty()
             ? defaultLogPath_(rt->appName)
@@ -152,6 +154,7 @@ namespace gpufl {
             e.name = std::move(name);
             e.tsNs = gpufl::detail::getTimestampNs();
             if (rt->collector) e.devices = rt->collector->sampleAll();
+            if (rt->hostCollector) e.host = rt->hostCollector->sample();
             rt->logger->logSystemStart(e);
         }
 
@@ -172,6 +175,7 @@ namespace gpufl {
         e.name = std::move(name);
         e.tsNs = gpufl::detail::getTimestampNs();
         if (rt->collector) e.devices = rt->collector->sampleAll();
+        if (rt->hostCollector) e.host = rt->hostCollector->sample();
         rt->logger->logSystemStop(e);
     }
 
@@ -214,6 +218,7 @@ namespace gpufl {
         if (rt->collector) {
             e.devices = rt->collector->sampleAll();
         }
+        if (rt->hostCollector) e.host = rt->hostCollector->sample();
         rt->logger->logScopeBegin(e);
 
         int rate = g_scopeSampleRateMs.load(std::memory_order_relaxed);
@@ -238,6 +243,7 @@ namespace gpufl {
         if (rt->collector) {
             e.devices = rt->collector->sampleAll();
         }
+        if (rt->hostCollector) e.host = rt->hostCollector->sample();
 
         rt->logger->logScopeEnd(e);
     }
