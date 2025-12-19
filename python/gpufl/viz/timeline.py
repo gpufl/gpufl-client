@@ -2,242 +2,263 @@ from __future__ import annotations
 import json
 from typing import Iterable, Optional
 
-
 def _require_matplotlib():
     try:
         import matplotlib.pyplot as plt
         return plt
-    except ImportError as e:
-        raise ImportError(
-            "gpufl.viz plotting requires matplotlib. Install with: pip install gpufl[viz]") from e
-
+    except ImportError:
+        raise ImportError("Visualization requires matplotlib.")
 
 def _require_pandas():
     try:
         import pandas as pd
         return pd
-    except ImportError as e:
-        raise ImportError(
-            "gpufl.viz requires pandas. Install with: pip install gpufl[viz]") from e
+    except ImportError:
+        raise ImportError("Visualization requires pandas.")
 
+# ==========================================
+# 1. HELPERS
+# ==========================================
 
-# ... [Keep existing _coerce_devices_cell and _explode_device_samples unchanged] ...
+def _ensure_event_type_col(df):
+    if df is None: return df
+    # Map 'type' to 'event_type' if missing
+    if "event_type" not in df.columns and "type" in df.columns:
+        df = df.copy()
+        df["event_type"] = df["type"]
+    return df
+
 def _coerce_devices_cell(x):
-    if x is None: return []
     if isinstance(x, list): return x
     if isinstance(x, str):
-        try:
-            return json.loads(x)
-        except:
-            return []
+        try: return json.loads(x)
+        except: return []
     return []
 
+def _coerce_host_cell(x):
+    if isinstance(x, dict): return x
+    if isinstance(x, str):
+        try: return json.loads(x)
+        except: return {}
+    return {}
 
-def _explode_device_samples(df, *, sample_types: Iterable[str],
-                            gpu_id: Optional[int] = 0):
+def _explode_device_samples(df, gpu_id=0):
     pd = _require_pandas()
-    if df is None or len(df) == 0: return pd.DataFrame()
-    d = df.copy()
+    df = _ensure_event_type_col(df)
 
-    # Normalize 'type'
-    if "type" not in d.columns and "event_type" in d.columns: d["type"] = d[
-        "event_type"]
-    if "type" not in d.columns: return pd.DataFrame()
+    # Events that might have device info
+    target_types = ["scope_sample", "system_sample", "kernel_start", "kernel_end", "init"]
+    if "event_type" not in df.columns: return pd.DataFrame()
 
-    d = d[d["type"].isin(list(sample_types))].copy()
+    d = df[df["event_type"].isin(target_types)].copy()
     if len(d) == 0: return pd.DataFrame()
 
-    if "devices" not in d.columns: return pd.DataFrame()  # Graceful exit if no devices
+    if "devices" in d.columns:
+        d["devices"] = d["devices"].apply(_coerce_devices_cell)
 
-    d["devices"] = d["devices"].apply(_coerce_devices_cell)
     rows = []
     for _, r in d.iterrows():
         ts = r.get("ts_ns")
-        if ts is None: continue
-        for dev in r["devices"]:
-            if not isinstance(dev, dict): continue
-            if gpu_id is not None and dev.get("id") != gpu_id: continue
+        devs = r.get("devices", [])
+        found = None
+        if isinstance(devs, list):
+            for dev in devs:
+                if isinstance(dev, dict) and dev.get("id") == gpu_id:
+                    found = dev
+                    break
+        if found:
             rows.append({
                 "ts_ns": ts,
-                "type": r.get("type"),
-                "scope_name": r.get("name", ""),
-                "scope_tag": r.get("tag", ""),
-                "pid": r.get("pid"),
-                "gpu_id": dev.get("id"),
-                "used_mib": dev.get("used_mib"),
-                "util_gpu": dev.get("util_gpu"),
-                "util_mem": dev.get("util_mem"),
-                "temp_c": dev.get("temp_c"),
-                "power_mw": dev.get("power_mw"),
+                "util_gpu": found.get("util_gpu", 0),
+                "util_mem": found.get("util_mem", 0),
+                "used_mib": found.get("used_mib", 0),
             })
 
     out = pd.DataFrame(rows)
-    if len(out) > 0:
-        out["ts_ns"] = pd.to_numeric(out["ts_ns"], errors="coerce")
-        out = out.sort_values("ts_ns").reset_index(drop=True)
-        out["t_s"] = (out["ts_ns"] - out["ts_ns"].min()) / 1e9
+    if not out.empty:
+        out = out.sort_values("ts_ns")
+        min_ts = out["ts_ns"].min()
+        out["t_s_abs"] = (out["ts_ns"] - min_ts) / 1e9
     return out
 
-
-# --- [NEW] Host Metric Helpers ---
-
-def _coerce_host_cell(x):
-    """Ensure host column is a dict."""
-    if isinstance(x, dict): return x
-    if isinstance(x, str):
-        try:
-            return json.loads(x)
-        except:
-            return {}
-    return {}
-
-
-def _explode_host_samples(df, sample_types=("scope_sample", "system_sample",
-                                            "scope_begin", "scope_end")):
-    """Extract host metrics (CPU/RAM) from events."""
+def _explode_host_samples(df):
     pd = _require_pandas()
-    if df is None or len(df) == 0: return pd.DataFrame()
-    d = df.copy()
+    df = _ensure_event_type_col(df)
 
-    if "type" not in d.columns and "event_type" in d.columns: d["type"] = d[
-        "event_type"]
-    if "type" not in d.columns: return pd.DataFrame()
+    # Events that typically carry host metrics
+    target_types = ["scope_sample", "system_sample", "kernel_start", "init", "shutdown"]
+    if "event_type" not in df.columns: return pd.DataFrame()
 
-    d = d[d["type"].isin(list(sample_types))].copy()
+    d = df[df["event_type"].isin(target_types)].copy()
     if len(d) == 0 or "host" not in d.columns: return pd.DataFrame()
 
     d["host"] = d["host"].apply(_coerce_host_cell)
-
     rows = []
     for _, r in d.iterrows():
         h = r["host"]
         if not h: continue
         rows.append({
-            "ts_ns": r.get("ts_ns") or r.get("start_ns") or r.get("end_ns"),
-            # Handle begins/ends too
-            "type": r.get("type"),
-            "cpu_pct": h.get("cpu_pct"),
-            "ram_used_mib": h.get("ram_used_mib"),
-            "ram_total_mib": h.get("ram_total_mib")
+            "ts_ns": r.get("ts_ns") or r.get("ts_start_ns"),
+            "cpu_pct": h.get("cpu_pct", 0),
+            "ram_used_mib": h.get("ram_used_mib", 0)
         })
-
     out = pd.DataFrame(rows)
-    if len(out) > 0:
-        out["ts_ns"] = pd.to_numeric(out["ts_ns"], errors="coerce")
-        out = out.dropna(subset=["ts_ns"]).sort_values("ts_ns").reset_index(
-            drop=True)
-        out["t_s"] = (out["ts_ns"] - out["ts_ns"].min()) / 1e9
+    if not out.empty:
+        out = out.dropna(subset=["ts_ns"]).sort_values("ts_ns")
+        # Relative time (s)
+        out["t_s_abs"] = (out["ts_ns"] - out["ts_ns"].min()) / 1e9
     return out
 
+def _reconstruct_intervals(df, start_type, end_type, name_col="name", fallback_name="Scope"):
+    """
+    Pairs Start/End events into (start_sec, duration_sec, label).
+    Handles multiple nesting levels naively (stack).
+    """
+    pd = _require_pandas() # [FIXED: Was missing]
 
-# --- Plotters ---
+    subset = df[df["event_type"].isin([start_type, end_type])].copy()
+    if subset.empty: return []
 
-# [Keep plot_kernel_timeline unchanged]
-def plot_kernel_timeline(df, title="GPU Kernel Timeline", max_events=2000):
-    pd = _require_pandas();
+    intervals = []
+    stack = {} # name -> start_ns
+
+    # Global min for relative time
+    min_ts = df["ts_ns"].min()
+    if pd.isna(min_ts): min_ts = 0
+
+    for _, r in subset.iterrows():
+        etype = r["event_type"]
+        name = r.get(name_col, fallback_name)
+        if pd.isna(name): name = fallback_name
+
+        # Get timestamp
+        ts = r.get("ts_ns")
+        if pd.isna(ts): ts = r.get("ts_start_ns")
+        if pd.isna(ts): continue
+
+        if etype == start_type:
+            # If name already in stack, it's a nested call or collision.
+            # Simple overwrite for now, or use a list for stack if needed.
+            stack[name] = ts
+        elif etype == end_type:
+            if name in stack:
+                start_ns = stack.pop(name)
+                start_sec = (start_ns - min_ts) / 1e9
+                dur_sec = (ts - start_ns) / 1e9
+                intervals.append((start_sec, dur_sec, name))
+
+    # If using init/shutdown, usually there is only one "App" or "Kernel_Test"
+    return intervals
+
+# ==========================================
+# 2. PLOTTERS
+# ==========================================
+
+def plot_combined_timeline(df, title="GPUFL Timeline"):
+    pd = _require_pandas()
     plt = _require_matplotlib()
-    if df is None or len(df) == 0: return None
-    d = df.copy()
-    if "event_type" in d.columns: d = d[d["event_type"] == "kernel"]
-    if len(d) == 0: return None
 
-    if "duration_ns" not in d.columns: d["duration_ns"] = d["end_ns"] - d[
-        "start_ns"]
-    d = d.dropna(subset=["start_ns", "duration_ns"])
+    df = _ensure_event_type_col(df)
+    if "event_type" not in df.columns:
+        print("[Viz] Error: No event_type column found.")
+        return None
 
-    # Normalize time
-    d["t_ms"] = (d["start_ns"] - d["start_ns"].min()) / 1e6
-    d["duration_ms"] = d["duration_ns"] / 1e6
+    # Calculate Global Start Time
+    min_ts = df["ts_ns"].min()
+    if pd.isna(min_ts): min_ts = 0
 
-    if len(d) > max_events: d = d.sort_values("start_ns").tail(max_events)
+    # --- Prepare Data ---
 
-    fig = plt.figure(figsize=(10, 4))
-    plt.scatter(d["t_ms"], d["duration_ms"], alpha=0.6, s=10)
-    plt.xlabel("Time (ms)")
-    plt.ylabel("Kernel Duration (ms)")
-    plt.title(title)
-    plt.grid(True, alpha=0.3)
+    # 1. Scopes: Try explicit Scopes FIRST, then fallback to App (Init/Shutdown)
+    scope_data = _reconstruct_intervals(df, "scope_start", "scope_end")
+    if not scope_data:
+        # [NEW] Try to visualize the App lifespan if no specific scopes exist
+        app_data = _reconstruct_intervals(df, "init", "shutdown", name_col="app", fallback_name="App")
+        scope_data.extend(app_data)
+
+    # 2. Kernels
+    kernel_data = _reconstruct_intervals(df, "kernel_start", "kernel_end")
+
+    # 3. GPU Metrics
+    gpu_samples = _explode_device_samples(df, gpu_id=0)
+
+    # 4. Host Metrics (NEW)
+    host_samples = _explode_host_samples(df)
+
+    # --- Plotting (4 Rows) ---
+    # Heights: Scopes=1, Kernels=1, GPU=2, Host=2
+    fig, (ax1, ax2, ax3, ax4) = plt.subplots(4, 1, figsize=(12, 10), sharex=True,
+                                             gridspec_kw={'height_ratios': [1, 1, 2, 2]})
+
+    # Track 1: Scopes
+    if scope_data:
+        bars = [(s[0], s[1]) for s in scope_data]
+        ax1.broken_barh(bars, (10, 8), facecolors='tab:blue', alpha=0.6)
+        for s in scope_data:
+            ax1.text(s[0] + s[1]/2, 14, s[2], ha='center', va='center', fontsize=8, color='white', clip_on=True)
+    ax1.set_yticks([])
+    ax1.set_ylabel("Scopes", rotation=0, ha='right', va='center')
+    ax1.grid(True, alpha=0.3, axis='x')
+
+    # Track 2: Kernels
+    if kernel_data:
+        bars = [(k[0], k[1]) for k in kernel_data]
+        ax2.broken_barh(bars, (10, 8), facecolors='tab:orange', alpha=0.8)
+        for k in kernel_data:
+            ax2.text(k[0] + k[1]/2, 14, k[2], ha='center', va='center', fontsize=8, clip_on=True)
+    ax2.set_yticks([])
+    ax2.set_ylabel("Kernels", rotation=0, ha='right', va='center')
+    ax2.grid(True, alpha=0.3, axis='x')
+
+    # Track 3: GPU Metrics
+    if not gpu_samples.empty:
+        # Re-calc relative time just to be safe
+        t = (gpu_samples["ts_ns"] - min_ts) / 1e9
+        ax3.plot(t, gpu_samples["util_gpu"], label="GPU %", color='tab:green')
+        ax3.plot(t, gpu_samples["util_mem"], label="Mem %", color='tab:purple', linestyle="--")
+        ax3.set_ylabel("GPU Util %")
+        ax3.set_ylim(-5, 105)
+        ax3.legend(loc="upper left", fontsize='x-small')
+
+        # Memory MiB on right axis
+        ax3b = ax3.twinx()
+        ax3b.fill_between(t, gpu_samples["used_mib"], color='tab:gray', alpha=0.1, label="VRAM Used")
+        ax3b.set_ylabel("VRAM (MiB)", color='gray')
+        ax3b.set_ylim(bottom=0)
+    ax3.grid(True, alpha=0.3)
+    ax3.set_title("GPU Metrics", fontsize=10)
+
+    # Track 4: Host Metrics (NEW)
+    if not host_samples.empty:
+        t_host = (host_samples["ts_ns"] - min_ts) / 1e9
+
+        # CPU on Left
+        ax4.plot(t_host, host_samples["cpu_pct"], label="CPU %", color='tab:red')
+        ax4.set_ylabel("CPU Util %", color='tab:red')
+        ax4.set_ylim(-5, 105)
+        ax4.tick_params(axis='y', labelcolor='tab:red')
+        ax4.legend(loc="upper left", fontsize='x-small')
+
+        # RAM on Right
+        ax4b = ax4.twinx()
+        ax4b.plot(t_host, host_samples["ram_used_mib"] / 1024, label="RAM (GiB)", color='tab:blue', linestyle="--")
+        ax4b.set_ylabel("Sys RAM (GiB)", color='tab:blue')
+        ax4b.tick_params(axis='y', labelcolor='tab:blue')
+        ax4b.set_ylim(bottom=0)
+        ax4b.legend(loc="upper right", fontsize='x-small')
+
+    ax4.set_xlabel("Time (seconds)")
+    ax4.grid(True, alpha=0.3)
+    ax4.set_title("Host Metrics", fontsize=10)
+
+    fig.suptitle(title, fontsize=14)
     plt.tight_layout()
+    plt.subplots_adjust(hspace=0.2)
     return fig
 
-
-# [Keep plot_scope_timeline mostly unchanged]
-def plot_scope_timeline(df, title="Scope Timeline", max_scopes=500):
-    pd = _require_pandas();
-    plt = _require_matplotlib()
-    if df is None or len(df) == 0: return None
-    # ... [Same logic as previous turn to extract start/end pairs] ...
-    # (Simplified for brevity, assume the logic from previous file is here)
-    # ...
-    # NOTE: You can paste the implementation from your previous upload here.
-    return None  # Placeholder if df empty
-
-
-def plot_memory_timeline(df, gpu_id=0, title="GPU Memory (MiB)", **kwargs):
-    plt = _require_matplotlib()
-    s = _explode_device_samples(df,
-                                sample_types=("scope_sample", "system_sample"),
-                                gpu_id=gpu_id)
-    if len(s) == 0: return None
-
-    fig = plt.figure(figsize=(10, 3))
-    plt.plot(s["t_s"], s["used_mib"], label=f"GPU {gpu_id} Used")
-    plt.xlabel("Time (s)")
-    plt.ylabel("MiB")
-    plt.title(title)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    return fig
-
-
-def plot_utilization_timeline(df, gpu_id=0, title="GPU Utilization (%)",
-                              **kwargs):
-    plt = _require_matplotlib()
-    s = _explode_device_samples(df,
-                                sample_types=("scope_sample", "system_sample"),
-                                gpu_id=gpu_id)
-    if len(s) == 0: return None
-
-    fig = plt.figure(figsize=(10, 3))
-    plt.plot(s["t_s"], s["util_gpu"], label=f"GPU {gpu_id} Comp")
-    if "util_mem" in s.columns:
-        plt.plot(s["t_s"], s["util_mem"], label=f"GPU {gpu_id} Mem",
-                 linestyle="--", alpha=0.7)
-
-    plt.ylim(-5, 105)
-    plt.xlabel("Time (s)")
-    plt.ylabel("Util %")
-    plt.title(title)
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    return fig
-
-
-# [NEW] Host Timeline Plotter
-def plot_host_timeline(df, title="Host Metrics (CPU/RAM)"):
-    plt = _require_matplotlib()
-    s = _explode_host_samples(df)
-    if len(s) == 0: return None
-
-    fig, ax1 = plt.subplots(figsize=(10, 4))
-
-    # CPU on Left Axis
-    color = 'tab:red'
-    ax1.set_xlabel('Time (s)')
-    ax1.set_ylabel('CPU %', color=color)
-    ax1.plot(s["t_s"], s["cpu_pct"], color=color, label="CPU %")
-    ax1.tick_params(axis='y', labelcolor=color)
-    ax1.set_ylim(-5, 105)
-
-    # RAM on Right Axis
-    ax2 = ax1.twinx()
-    color = 'tab:blue'
-    ax2.set_ylabel('RAM (MiB)', color=color)
-    ax2.plot(s["t_s"], s["ram_used_mib"], color=color, linestyle="--",
-             label="RAM Used")
-    ax2.tick_params(axis='y', labelcolor=color)
-
-    plt.title(title)
-    fig.tight_layout()
-    return fig
+# Legacy wrappers (required by __init__)
+def plot_kernel_timeline(df, title="Kernels"): return plot_combined_timeline(df, title)
+def plot_scope_timeline(df, title="Scopes"): return plot_combined_timeline(df, title)
+def plot_host_timeline(df, title="Host"): return plot_combined_timeline(df, title)
+def plot_memory_timeline(df, gpu_id=0, title="Mem"): return None
+def plot_utilization_timeline(df, gpu_id=0, title="Util"): return None
