@@ -59,7 +59,7 @@ namespace gpufl {
         void Initialize(const MonitorOptions& opts) override;
         void Shutdown() override;
 
-        CUptiResult (*get_value())(CUpti_ActivityKind);
+        static CUptiResult (*get_value())(CUpti_ActivityKind);
 
         void Start() override;
         void Stop() override;
@@ -72,7 +72,7 @@ namespace gpufl {
         // CUPTI callback functions
         static void CUPTIAPI BufferRequested(uint8_t **buffer, size_t *size, size_t *maxNumRecords);
         static void CUPTIAPI BufferCompleted(CUcontext context, uint32_t streamId, uint8_t *buffer, size_t size, size_t validSize);
-        static void CUPTIAPI GflCallback(void *userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, const CUpti_CallbackData *cbInfo);
+        static void CUPTIAPI GflCallback(void *userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, CUpti_CallbackData *cbInfo);
 
         CUpti_SubscriberHandle subscriber_{};
         std::atomic<bool> active_{false};

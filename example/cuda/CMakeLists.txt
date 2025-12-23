@@ -29,6 +29,7 @@ endif()
 add_executable(test_occupancy test_occupancy.cu)
 add_executable(gfl_block_example block_style_example.cu)
 add_executable(system_monitor system_monitor.cu)
+add_executable(check_conflict check_conflict.cu)
 
 target_link_libraries(test_occupancy PRIVATE
     gpufl::gpufl
@@ -50,6 +51,13 @@ target_link_libraries(system_monitor PRIVATE
     CUDA::cupti
 )
 
+target_link_libraries(check_conflict PRIVATE
+    gpufl::gpufl
+    CUDA::cudart
+    CUDA::nvml
+    CUDA::cupti
+)
+
 # Properties
 set_target_properties(gfl_block_example PROPERTIES
         CUDA_SEPARABLE_COMPILATION ON
@@ -60,6 +68,10 @@ set_target_properties(system_monitor PROPERTIES
         CUDA_ARCHITECTURES "native"
 )
 set_target_properties(test_occupancy PROPERTIES
+    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_ARCHITECTURES "native"
+)
+set_target_properties(check_conflict PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
     CUDA_ARCHITECTURES "native"
 )

@@ -142,15 +142,17 @@ namespace gpufl {
     void Monitor::Shutdown() {
         if (!g_initialized.exchange(false)) return;
 
+        if (g_backend) {
+            g_backend->Shutdown();
+        }
+
         g_collectorRunning.store(false);
+
         if (g_collectorThread.joinable()) {
             g_collectorThread.join();
         }
 
-        if (g_backend) {
-            g_backend->Shutdown();
-            g_backend.reset();
-        }
+        g_backend.reset();
     }
 
     void Monitor::Start() {

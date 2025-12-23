@@ -193,6 +193,7 @@ namespace gpufl {
     }
 
     void systemStop(std::string name) {
+        Monitor::Stop();
         Runtime* rt = runtime();
         if (!rt || !rt->logger) return;
 
