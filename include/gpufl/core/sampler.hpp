@@ -12,11 +12,12 @@
 namespace gpufl {
     class Logger;
 
+    template <typename T>
     class ISystemCollector {
     public:
         virtual ~ISystemCollector() = default;
 
-        virtual std::vector<DeviceSample> sampleAll() = 0;
+        virtual std::vector<T> sampleAll() = 0;
     };
 
     class Sampler {
@@ -25,8 +26,9 @@ namespace gpufl {
         ~Sampler();
 
         void start(std::string appName,
+                   std::string sessionId,
                    std::shared_ptr<Logger> logger,
-                   std::shared_ptr<ISystemCollector> collector,
+                   std::shared_ptr<ISystemCollector<DeviceSample>> collector,
                    int sampleIntervalMs,
                    std::string name);
 
@@ -41,8 +43,9 @@ namespace gpufl {
         std::thread th_;
 
         std::string appName_;
+        std::string sessionId_;
         std::shared_ptr<Logger> logger_;
-        std::shared_ptr<ISystemCollector> collector_;
+        std::shared_ptr<ISystemCollector<DeviceSample>> collector_;
         std::string name_;
         int intervalMs_{0};
     };

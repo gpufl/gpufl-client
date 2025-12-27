@@ -35,12 +35,10 @@ namespace gpufl {
         // Kernel channel
         void logKernelBegin(const KernelBeginEvent& e) const;
         void logKernelEnd(const KernelEndEvent& e) const;
-        void logKernelSample(const KernelSampleEvent& e) const;
 
         // Scope channel
         void logScopeBegin(const ScopeBeginEvent& e) const;
         void logScopeEnd(const ScopeEndEvent& e) const;
-        void logScopeSample(const ScopeSampleEvent& e) const;
 
         // System channel
         void logSystemStart(const SystemStartEvent& e) const;

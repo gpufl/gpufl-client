@@ -10,6 +10,19 @@ namespace gpufl {
         uint64_t ramTotalMiB = 0;
     };
 
+    struct CudaStaticDeviceInfo {
+        int id;
+        std::string name;
+        std::string uuid;
+        int computeMajor;
+        int computeMinor;
+        int l2CacheSize;
+        int sharedMemPerBlock;
+        int regsPerBlock;
+        int multiProcessorCount;
+        int warpSize;
+    };
+
     struct DeviceSample {
         int deviceId = 0;
         std::string name;
@@ -41,15 +54,18 @@ namespace gpufl {
     struct InitEvent {
         int pid = 0;
         std::string app;
+        std::string sessionId;
         std::string logPath;
         int64_t tsNs = 0;
         HostSample host;
         std::vector<DeviceSample> devices;
+        std::vector<CudaStaticDeviceInfo> cudaStaticDeviceInfos;
     };
 
     struct ShutdownEvent {
         int pid = 0;
         std::string app;
+        std::string sessionId;
         int64_t tsNs = 0;
     };
 
@@ -57,6 +73,8 @@ namespace gpufl {
         int pid = 0;
         std::string app;
         std::string name;
+        std::string sessionId;
+        int32_t deviceId = 0;
 
         int64_t tsNs = 0;
         int64_t durationNs = 0;
@@ -77,25 +95,18 @@ namespace gpufl {
     struct KernelEndEvent {
         int pid = 0;
         std::string app;
+        std::string sessionId;
         std::string name;
         int64_t tsNs = 0;
         std::string cudaError;
         unsigned int corrId = 0;
     };
 
-    struct KernelSampleEvent {
-        int pid;
-        std::string app;
-        std::string name;
-        int64_t tsNs;
-        HostSample host;
-        std::vector<DeviceSample> devices;
-    };
-
     struct ScopeBeginEvent {
         uint64_t scopeId = 0;
         int pid = 0;
         std::string app;
+        std::string sessionId;
         std::string name;
         std::string tag;
         int64_t tsNs = 0;
@@ -108,18 +119,7 @@ namespace gpufl {
         uint64_t scopeId = 0;
         int pid = 0;
         std::string app;
-        std::string name;
-        std::string tag;
-        int64_t tsNs = 0;
-
-        HostSample host;
-        std::vector<DeviceSample> devices;
-    };
-
-    struct ScopeSampleEvent {
-        uint64_t scopeId = 0;
-        int pid = 0;
-        std::string app;
+        std::string sessionId;
         std::string name;
         std::string tag;
         int64_t tsNs = 0;
@@ -132,6 +132,7 @@ namespace gpufl {
         int pid{};
         std::string app;
         std::string name;
+        std::string sessionId;
         int64_t tsNs{};
 
         HostSample host;
@@ -141,6 +142,7 @@ namespace gpufl {
     struct SystemSampleEvent {
         int pid = 0;
         std::string app;
+        std::string sessionId;
         std::string name;
         int64_t tsNs = 0;
 
@@ -151,6 +153,7 @@ namespace gpufl {
     struct SystemStopEvent {
         int pid{};
         std::string app;
+        std::string sessionId;
         std::string name;
         int64_t tsNs{};
 

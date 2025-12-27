@@ -54,6 +54,8 @@ namespace gpufl {
                 if (rt && rt->logger) {
                     if (rec.type == TraceType::KERNEL) {
                         KernelBeginEvent be;
+                        be.deviceId = rec.deviceId;
+                        be.sessionId = rt->sessionId;
                         be.pid = detail::getPid();
                         be.app = rt->appName;
                         be.name = rec.name;
@@ -75,6 +77,7 @@ namespace gpufl {
                         KernelEndEvent ee;
                         ee.pid = detail::getPid();
                         ee.app = rt->appName;
+                        ee.sessionId = rt->sessionId;
                         ee.corrId = rec.corrId;
                         ee.name = rec.name;
                         ee.tsNs = rec.cpuStartNs + durationNs;
@@ -83,6 +86,7 @@ namespace gpufl {
                         ScopeBeginEvent be;
                         be.pid = detail::getPid();
                         be.app = rt->appName;
+                        be.sessionId = rt->sessionId;
                         be.name = rec.name;
                         be.tsNs = rec.cpuStartNs;
                         if (rt->collector) be.devices = rt->collector->sampleAll();
@@ -93,6 +97,7 @@ namespace gpufl {
                         ee.pid = detail::getPid();
                         ee.app = rt->appName;
                         ee.name = rec.name;
+                        ee.sessionId = rt->sessionId;
                         ee.tsNs = rec.cpuStartNs + durationNs;
                         if (rt->collector) ee.devices = rt->collector->sampleAll();
                         if (rt->hostCollector) ee.host = rt->hostCollector->sample();

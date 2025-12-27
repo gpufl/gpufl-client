@@ -7,6 +7,8 @@
 #include <iostream>
 #include <cstring>
 
+#include "gpufl/backends/nvidia/cuda_collector.hpp"
+
 #define CUPTI_CHECK(call, failMsg) \
     do { \
         CUptiResult res = (call); \
@@ -89,10 +91,8 @@ namespace gpufl {
         if (!initialized_) return;
         active_.store(true);
 
-        if (const CUptiResult res = cuptiActivityEnable(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL); res != CUPTI_SUCCESS) {
-            // Fallback to legacy if concurrent fails
-            cuptiActivityEnable(CUPTI_ACTIVITY_KIND_KERNEL);
-        }
+        cuptiActivityEnable(CUPTI_ACTIVITY_KIND_CONCURRENT_KERNEL);
+        cuptiActivityEnable(CUPTI_ACTIVITY_KIND_KERNEL);
 
         GFL_LOG_DEBUG("Start complete");
     }
@@ -142,7 +142,9 @@ namespace gpufl {
                         const auto *k = reinterpret_cast<const
                             CUpti_ActivityKernel9 *>(record);
 
+
                         ActivityRecord out{};
+                        out.deviceId = k->deviceId;
                         out.type = TraceType::KERNEL;
                         std::snprintf(out.name, sizeof(out.name), "%s", (k->name ? k->name : "kernel"));
                         out.cpuStartNs = baseCpuNs + static_cast<int64_t>(k->start - baseCuptiTs);

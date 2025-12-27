@@ -12,6 +12,7 @@
 namespace gpufl {
 
     struct ActivityRecord {
+        int32_t deviceId;
         char name[128];
         TraceType type;
         cudaStream_t stream;

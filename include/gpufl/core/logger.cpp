@@ -27,6 +27,29 @@ namespace gpufl {
         }
         return oss.str();
     }
+    static std::string cudaStaticDeviceToJson(const std::vector<CudaStaticDeviceInfo>& devs) {
+        std::ostringstream oss;
+        oss << "[";
+        bool first = true;
+        for (auto &dev : devs) {
+            if (!first) oss << ",";
+            first = false;
+            oss << "{"
+            << "\"id\":" << dev.id
+                << ",\"name\":\"" << jsonEscape(dev.name) << "\""
+                << ",\"uuid\":\"" << jsonEscape(dev.uuid) << "\""
+                << ",\"compute_major\":\"" << dev.computeMajor << "\""
+                << ",\"compute_minor\":" << dev.computeMinor
+                << ",\"l2_cache_size\":" << dev.l2CacheSize
+                << ",\"shared_mem_per_block\":" << dev.sharedMemPerBlock
+                << ",\"regs_per_block\":" << dev.regsPerBlock
+                << ",\"multi_processor_count\":" << dev.multiProcessorCount
+                << ",\"warp_size\":" << dev.warpSize
+                << "}";
+        }
+        oss << "]";
+        return oss.str();
+    }
 
     static std::string devicesToJson(const std::vector<DeviceSample>& devs) {
         std::ostringstream oss;
@@ -206,11 +229,13 @@ namespace gpufl {
             << "\"type\":\"init\""
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
+            << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
             << ",\"logPath\":\"" << jsonEscape(e.logPath) << "\""
             << ",\"ts_ns\":" << e.tsNs
             << ",\"system_rate_ms\":" << opt_.systemSampleRateMs
             << ",\"host\":" << hostToJson(e.host)
             << ",\"devices\":" << devicesToJson(e.devices)
+            << ",\"cuda_static_devices\":" << cudaStaticDeviceToJson(e.cudaStaticDeviceInfos)
             << "}";
 
         std::string json = oss.str();
@@ -227,6 +252,7 @@ namespace gpufl {
             << "\"type\":\"shutdown\""
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
+            << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
             << ",\"ts_ns\":" << e.tsNs
             << "}";
 
@@ -247,7 +273,9 @@ namespace gpufl {
             << "\"type\":\"kernel_start\""
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
+            << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
+            << ",\"device_id\":\"" << e.deviceId << "\""
             << ",\"ts_ns\":" << e.tsNs
             << ",\"duration_ns\":" << e.durationNs
             << ",\"grid\":\"" << jsonEscape(e.grid) << "\""
@@ -272,25 +300,11 @@ namespace gpufl {
             << "\"type\":\"kernel_end\""
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
+            << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"ts_ns\":" << e.tsNs
             << ",\"corr_id\":" << e.corrId
             << ",\"cuda_error\":\"" << jsonEscape(e.cudaError) << "\""
-            << "}";
-        chanKernel_->write(oss.str());
-    }
-
-    void Logger::logKernelSample(const KernelSampleEvent& e) const {
-        if (!chanKernel_) return;
-        std::ostringstream oss;
-        oss << "{"
-            << "\"type\":\"kernel_sample\""
-            << ",\"pid\":" << e.pid
-            << ",\"app\":\"" << jsonEscape(e.app) << "\""
-            << ",\"name\":\"" << jsonEscape(e.name) << "\""
-            << ",\"ts_ns\":" << e.tsNs
-            << ",\"host\":" << hostToJson(e.host)
-            << ",\"devices\":" << devicesToJson(e.devices)
             << "}";
         chanKernel_->write(oss.str());
     }
@@ -302,6 +316,7 @@ namespace gpufl {
             << "\"type\":\"scope_begin\""
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
+            << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"tag\":\"" << jsonEscape(e.tag) << "\""
             << ",\"ts_ns\":" << e.tsNs
@@ -318,22 +333,7 @@ namespace gpufl {
             << "\"type\":\"scope_end\""
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
-            << ",\"name\":\"" << jsonEscape(e.name) << "\""
-            << ",\"tag\":\"" << jsonEscape(e.tag) << "\""
-            << ",\"ts_ns\":" << e.tsNs
-            << ",\"host\":" << hostToJson(e.host)
-            << ",\"devices\":" << devicesToJson(e.devices)
-            << "}";
-        chanScope_->write(oss.str());
-    }
-
-    void Logger::logScopeSample(const ScopeSampleEvent& e) const {
-        if (!chanScope_) return;
-        std::ostringstream oss;
-        oss << "{"
-            << "\"type\":\"scope_sample\""
-            << ",\"pid\":" << e.pid
-            << ",\"app\":\"" << jsonEscape(e.app) << "\""
+            << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"tag\":\"" << jsonEscape(e.tag) << "\""
             << ",\"ts_ns\":" << e.tsNs
@@ -350,6 +350,7 @@ namespace gpufl {
             << "\"type\":\"system_sample\""
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
+            << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"ts_ns\":" << e.tsNs
             << ",\"host\":" << hostToJson(e.host)
@@ -365,6 +366,7 @@ namespace gpufl {
             << "\"type\":\"system_start\""
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
+            << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"ts_ns\":" << e.tsNs
             << ",\"host\":" << hostToJson(e.host)
@@ -380,6 +382,7 @@ namespace gpufl {
             << "\"type\":\"system_stop\""
             << ",\"pid\":" << e.pid
             << ",\"app\":\"" << jsonEscape(e.app) << "\""
+            << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"ts_ns\":" << e.tsNs
             << ",\"host\":" << hostToJson(e.host)
