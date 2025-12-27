@@ -15,7 +15,7 @@ namespace gpufl::nvidia {
         std::chrono::steady_clock::time_point lastTime;
         bool initialized = false;
     };
-    class NvmlCollector : public ISystemCollector {
+    class NvmlCollector : public ISystemCollector<DeviceSample> {
     public:
         NvmlCollector();
         ~NvmlCollector() override;

@@ -11,9 +11,11 @@ namespace gpufl {
 
     struct Runtime {
         std::string appName;
+        std::string sessionId;
         std::shared_ptr<Logger> logger;
-        std::shared_ptr<ISystemCollector> collector;
+        std::shared_ptr<ISystemCollector<DeviceSample>> collector;
         std::unique_ptr<HostCollector> hostCollector;
+        std::unique_ptr<ISystemCollector<CudaStaticDeviceInfo>> cudaCollector;
 
         // background system sampling
         std::atomic<bool> systemSampling{false};

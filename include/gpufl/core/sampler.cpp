@@ -7,14 +7,16 @@ namespace gpufl {
     Sampler::~Sampler() { stop(); }
 
     void Sampler::start(std::string appName,
+                        std::string sessionId,
                         std::shared_ptr<Logger> logger,
-                        std::shared_ptr<ISystemCollector> collector,
+                        std::shared_ptr<ISystemCollector<DeviceSample>> collector,
                         const int sampleIntervalMs,
                         std::string name) {
         stop();
 
         appName_ = std::move(appName);
         logger_ = std::move(logger);
+        sessionId_ = std::move(sessionId);
         collector_ = std::move(collector);
         intervalMs_ = sampleIntervalMs;
         name_ = std::move(name);
@@ -59,6 +61,7 @@ namespace gpufl {
             SystemSampleEvent e;
             e.pid = detail::getPid();
             e.app = appName_;
+            e.sessionId = sessionId_;
             e.name = name_;
             e.tsNs = ts;
             e.devices = collector_->sampleAll();

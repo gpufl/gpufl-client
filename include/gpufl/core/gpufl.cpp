@@ -12,7 +12,7 @@
 #include "gpufl/core/monitor.hpp"
 #include "gpufl/core/debug_logger.hpp"
 #include "gpufl/backends/host_collector.hpp"
-
+#include "../backends/nvidia/cuda_collector.hpp"
 #if GPUFL_HAS_CUDA || defined(__CUDACC__)
   #include <cuda_runtime.h>
 #endif
@@ -38,14 +38,14 @@ namespace gpufl {
         return g_nextScopeId.fetch_add(1, std::memory_order_relaxed);
     }
 
-    static std::shared_ptr<ISystemCollector> createCollector_(const BackendKind backend, std::string* reasonOut) {
+    static std::shared_ptr<ISystemCollector<DeviceSample>> createCollector_(const BackendKind backend, std::string* reasonOut) {
         if (reasonOut) reasonOut->clear();
 
         auto setReason = [&](const std::string& r) {
             if (reasonOut && reasonOut->empty()) *reasonOut = r;
         };
 
-        auto tryNvml = [&]() -> std::shared_ptr<ISystemCollector> {
+        auto tryNvml = [&]() -> std::shared_ptr<ISystemCollector<DeviceSample>> {
 #if GPUFL_ENABLE_NVIDIA && GPUFL_HAS_NVML
             return std::make_shared<gpufl::nvidia::NvmlCollector>();
 #else
@@ -54,7 +54,7 @@ namespace gpufl {
 #endif
         };
 
-        auto tryRocm = [&]() -> std::shared_ptr<ISystemCollector> {
+        auto tryRocm = [&]() -> std::shared_ptr<ISystemCollector<DeviceSample>> {
 #if GPUFL_ENABLE_AMD && GPUFL_HAS_ROCM
             return std::make_shared<gpufl::amd::RocmCollector>();
 #else
@@ -101,9 +101,10 @@ namespace gpufl {
 
         auto rt = std::make_unique<Runtime>();
         rt->appName = opts.appName.empty() ? "gpufl" : opts.appName;
-
+        rt->sessionId = detail::generateSessionId();
         rt->logger = std::make_shared<Logger>();
         rt->hostCollector = std::make_unique<HostCollector>();
+        rt->cudaCollector = std::make_unique<nvidia::CudaCollector>();
 
         const std::string logPath = opts.logPath.empty()
             ? defaultLogPath_(rt->appName)
@@ -141,6 +142,7 @@ namespace gpufl {
         // init event with inventory (optional)
         InitEvent ie;
         ie.pid = detail::getPid();
+        ie.sessionId = rt_ptr->sessionId;
         ie.app = rt_ptr->appName;
         ie.logPath = logPath;
         ie.tsNs = detail::getTimestampNs();
@@ -148,13 +150,18 @@ namespace gpufl {
         if (rt_ptr->collector) {
             ie.devices = rt_ptr->collector->sampleAll();
         }
+        if (opts.backend == BackendKind::Auto || opts.backend == BackendKind::Nvidia) {
+#if GPUFL_HAS_CUDA
+            ie.cudaStaticDeviceInfos = rt_ptr->cudaCollector->sampleAll();
+#endif
+        }
         ie.host = rt_ptr->hostCollector->sample();
 
         rt_ptr->logger->logInit(ie);
 
         // Start sampler if enabled and collector exists
         if (opts.samplingAutoStart && opts.systemSampleRateMs > 0 && rt_ptr->collector) {
-            rt_ptr->sampler.start(rt_ptr->appName, rt_ptr->logger, rt_ptr->collector, opts.systemSampleRateMs, rt_ptr->appName);
+            rt_ptr->sampler.start(rt_ptr->appName, rt_ptr->sessionId, rt_ptr->logger, rt_ptr->collector, opts.systemSampleRateMs, rt_ptr->appName);
         }
 
         GFL_LOG_DEBUG("Initialization complete!");
@@ -164,7 +171,6 @@ namespace gpufl {
     void systemStart(std::string name) {
         Runtime* rt = runtime();
         if (!rt || !rt->logger) return;
-
         {
             SystemStartEvent e;
             e.pid = gpufl::detail::getPid();
@@ -176,7 +182,7 @@ namespace gpufl {
             rt->logger->logSystemStart(e);
         }
         if (g_opts.systemSampleRateMs > 0 && rt->collector) {
-            rt->sampler.start(rt->appName, rt->logger, rt->collector, g_opts.systemSampleRateMs, name);
+            rt->sampler.start(rt->appName, rt->sessionId, rt->logger, rt->collector, g_opts.systemSampleRateMs, name);
         }
     }
 
@@ -189,6 +195,7 @@ namespace gpufl {
         SystemStopEvent e;
         e.pid = gpufl::detail::getPid();
         e.app = rt->appName;
+        e.sessionId = rt->sessionId;
         e.name = std::move(name);
         e.tsNs = gpufl::detail::getTimestampNs();
         if (rt->collector) e.devices = rt->collector->sampleAll();
@@ -207,6 +214,7 @@ namespace gpufl {
         ShutdownEvent se;
         se.pid = detail::getPid();
         se.app = rt->appName;
+        se.sessionId = rt->sessionId;
         se.tsNs = detail::getTimestampNs();
         rt->logger->logShutdown(se);
 
@@ -229,6 +237,7 @@ namespace gpufl {
         ScopeBeginEvent e;
         e.pid = pid_;
         e.app = rt->appName;
+        e.sessionId = rt->sessionId;
         e.name = name_;
         e.tag = tag_;
         e.tsNs = startTs_;
@@ -245,6 +254,7 @@ namespace gpufl {
         ScopeEndEvent e;
         e.pid = pid_;
         e.app = rt->appName;
+        e.sessionId = rt->sessionId;
         e.name = name_;
         e.tag = tag_;
         e.tsNs = detail::getTimestampNs();
