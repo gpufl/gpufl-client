@@ -276,6 +276,7 @@ namespace gpufl {
             << ",\"session_id\":\"" << jsonEscape(e.sessionId) << "\""
             << ",\"name\":\"" << jsonEscape(e.name) << "\""
             << ",\"platform\":\"" << jsonEscape(e.platform) << "\""
+            << ",\"has_details\":" << std::boolalpha << e.hasDetails
             << ",\"device_id\":\"" << e.deviceId << "\""
             << ",\"ts_ns\":" << e.tsNs
             << ",\"duration_ns\":" << e.durationNs
