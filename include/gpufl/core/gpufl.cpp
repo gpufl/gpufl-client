@@ -165,6 +165,7 @@ namespace gpufl {
             e.pid = gpufl::detail::getPid();
             e.app = rt_ptr->appName;
             e.name = "sampling_start";
+            e.sessionId = rt_ptr->sessionId;
             e.tsNs = gpufl::detail::getTimestampNs();
             if (rt_ptr->collector) e.devices = rt_ptr->collector->sampleAll();
             if (rt_ptr->hostCollector) e.host = rt_ptr->hostCollector->sample();
@@ -187,6 +188,7 @@ namespace gpufl {
             e.pid = gpufl::detail::getPid();
             e.app = rt->appName;
             e.name = std::move(name);
+            e.sessionId = rt->sessionId;
             e.tsNs = gpufl::detail::getTimestampNs();
             if (rt->collector) e.devices = rt->collector->sampleAll();
             if (rt->hostCollector) e.host = rt->hostCollector->sample();
