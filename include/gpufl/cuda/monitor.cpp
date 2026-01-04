@@ -55,6 +55,7 @@ namespace gpufl {
                 Runtime* rt = runtime();
                 if (rt && rt->logger) {
                     if (rec.type == TraceType::KERNEL) {
+
                         std::string stackTrace = StackRegistry::instance().get(rec.stackId);
 
                         KernelBeginEvent be;

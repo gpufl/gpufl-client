@@ -447,6 +447,7 @@ namespace gpufl {
                                 const LaunchMeta &m = it->second;
 
                                 out.scopeDepth = m.scopeDepth;
+                                out.stackId = m.stackId;
                                 std::copy(std::begin(m.userScope), std::end(m.userScope), std::begin(out.userScope));
 
                                 if (m.hasDetails) {
