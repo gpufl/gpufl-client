@@ -119,6 +119,11 @@ endif()
 
 # 7. Register with CTest
 include(GoogleTest)
-gtest_discover_tests(gpufl_tests
-    DISCOVERY_TIMEOUT 20
-)
+# Use gtest_add_tests instead of gtest_discover_tests on Windows to avoid DLL issues during test discovery
+if(WIN32)
+    gtest_add_tests(TARGET gpufl_tests)
+else()
+    gtest_discover_tests(gpufl_tests
+        DISCOVERY_TIMEOUT 20
+    )
+endif()
