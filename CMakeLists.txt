@@ -154,6 +154,14 @@ if(GPUFL_ENABLE_NVIDIA)
     if(BUILD_GPUFL_EXAMPLE AND GPUFL_HAS_CUDA AND CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
         add_subdirectory(example/cuda)
     endif()
+
+    # -----------------------
+    # Unit Tests
+    # -----------------------
+    if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+        enable_testing()
+        add_subdirectory(tests)
+    endif()
 endif()
 
 
