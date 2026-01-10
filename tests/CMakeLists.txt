@@ -49,7 +49,7 @@ if(TARGET CUDA::cudart)
     target_link_libraries(gpufl_tests PRIVATE CUDA::cudart CUDA::cuda_driver)
 endif()
 
-# 6. Copy CUPTI DLL on Windows for test execution
+# 6. Copy CUPTI and CUDA DLLs on Windows for test execution
 if(WIN32)
     set(CUPTI_DLL_FOUND FALSE)
 
@@ -98,11 +98,27 @@ if(WIN32)
             COMMENT "Copying CUPTI DLL to test directory"
         )
     endif()
+
+    # Also copy CUDA runtime DLLs needed for test discovery
+    if(CUDAToolkit_ROOT)
+        file(TO_CMAKE_PATH "${CUDAToolkit_ROOT}/bin" CUDA_BIN_PATH)
+        file(GLOB CUDA_RUNTIME_DLLS
+            "${CUDA_BIN_PATH}/cudart64*.dll"
+            "${CUDA_BIN_PATH}/nvrtc64*.dll"
+        )
+        foreach(DLL_FILE ${CUDA_RUNTIME_DLLS})
+            add_custom_command(TARGET gpufl_tests POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${DLL_FILE}"
+                "$<TARGET_FILE_DIR:gpufl_tests>"
+                COMMENT "Copying CUDA runtime DLL: ${DLL_FILE}"
+            )
+        endforeach()
+    endif()
 endif()
 
 # 7. Register with CTest
 include(GoogleTest)
 gtest_discover_tests(gpufl_tests
     DISCOVERY_TIMEOUT 20
-    DISCOVERY_MODE PRE_TEST  # Defer test discovery to runtime to avoid DLL issues on Windows
 )
